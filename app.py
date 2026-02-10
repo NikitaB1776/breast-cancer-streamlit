@@ -86,7 +86,6 @@ st.markdown(
     '<div class="subtitle">Machine Learning based early cancer prediction</div>',
     unsafe_allow_html=True
 )
-
 st.write("---")
 
 # ==============================
@@ -103,8 +102,8 @@ option = st.sidebar.radio(
 # ==============================
 if option == "Manual Input":
     st.subheader("✍️ Enter Cell Features (1–10)")
-
     user_input = []
+
     for feature in FEATURES:
         value = st.number_input(feature, min_value=1, max_value=10, value=1)
         user_input.append(value)
@@ -112,49 +111,55 @@ if option == "Manual Input":
     input_data = np.array(user_input).reshape(1, -1)
 
     if st.button("🔬 Predict"):
-        prediction = model.predict(input_data)[0]
-        probability = model.predict_proba(input_data)[0]
+        try:
+            prediction = model.predict(input_data)[0]
+            probability = model.predict_proba(input_data)[0]
 
-        if prediction == 4:
+            # RandomForestClassifier default: 2 classes, encoded as 2/4
+            # 2 -> Benign, 4 -> Malignant
+            label = "Malignant" if prediction == 4 else "Benign"
+            color = "#ffe6e6" if label == "Malignant" else "#e6ffe6"
+            text_color = "#cc0000" if label == "Malignant" else "#006600"
+
             st.markdown(
-                '<div class="result-box" style="background-color:#ffe6e6;color:#cc0000;">⚠️ Malignant Tumor Detected</div>',
+                f'<div class="result-box" style="background-color:{color};color:{text_color};">⚠️ {label} Tumor Detected</div>',
                 unsafe_allow_html=True
             )
-        else:
-            st.markdown(
-                '<div class="result-box" style="background-color:#e6ffe6;color:#006600;">✅ Benign Tumor Detected</div>',
-                unsafe_allow_html=True
-            )
+            st.write(f"### Prediction Confidence: **{max(probability)*100:.2f}%**")
 
-        st.write(f"### Prediction Confidence: **{max(probability)*100:.2f}%**")
+        except Exception as e:
+            st.error(f"Error during prediction: {e}")
 
 # ==============================
 # CSV Upload
 # ==============================
 else:
     st.subheader("📂 Upload CSV File")
-
-    uploaded_file = st.file_uploader("Upload CSV with 9 feature columns", type=["csv"])
+    uploaded_file = st.file_uploader("Upload CSV with 9 feature columns (same order as training)", type=["csv"])
 
     if uploaded_file:
         try:
             data = pd.read_csv(uploaded_file)
 
-            st.write("📊 Uploaded Data Preview")
-            st.dataframe(data.head())
+            # Check if all required features exist
+            if list(data.columns) != FEATURES:
+                st.error(f"⚠️ CSV must have columns in this exact order:\n{FEATURES}")
+            else:
+                st.write("📊 Uploaded Data Preview")
+                st.dataframe(data.head())
 
-            predictions = model.predict(data)
-            probabilities = model.predict_proba(data)
+                predictions = model.predict(data)
+                probabilities = model.predict_proba(data)
 
-            results = data.copy()
-            results["Prediction"] = ["Malignant" if p == 4 else "Benign" for p in predictions]
-            results["Confidence (%)"] = [round(max(prob)*100, 2) for prob in probabilities]
+                results = data.copy()
+                results["Prediction"] = ["Malignant" if p == 4 else "Benign" for p in predictions]
+                results["Confidence (%)"] = [round(max(prob)*100, 2) for prob in probabilities]
 
-            st.write("🧾 Prediction Results")
-            st.dataframe(results)
+                st.write("🧾 Prediction Results")
+                st.dataframe(results)
 
-        except Exception:
-            st.error("⚠️ CSV must contain the 9 training features in correct order.")
+        except Exception as e:
+            st.error(f"⚠️ CSV processing error: {e}")
 
 # ==============================
 # Disclaimer
