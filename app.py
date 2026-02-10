@@ -58,13 +58,13 @@ body {
 @st.cache_resource
 def load_model():
     with open("breast_cancer_model.pkl", "rb") as file:
-        model = pickle.load(file)
+        model = pickle.load(file)  # <-- only load the model
     return model
 
 model = load_model()
 
 # ==============================
-# Feature Names (FROM TRAINING)
+# Feature Names (from training)
 # ==============================
 FEATURES = [
     "ClumpThickness",
@@ -103,7 +103,6 @@ option = st.sidebar.radio(
 if option == "Manual Input":
     st.subheader("✍️ Enter Cell Features (1–10)")
     user_input = []
-
     for feature in FEATURES:
         value = st.number_input(feature, min_value=1, max_value=10, value=1)
         user_input.append(value)
@@ -115,8 +114,8 @@ if option == "Manual Input":
             prediction = model.predict(input_data)[0]
             probability = model.predict_proba(input_data)[0]
 
-            # RandomForestClassifier default: 2 classes, encoded as 2/4
-            # 2 -> Benign, 4 -> Malignant
+            # Map classes automatically
+            classes = model.classes_
             label = "Malignant" if prediction == 4 else "Benign"
             color = "#ffe6e6" if label == "Malignant" else "#e6ffe6"
             text_color = "#cc0000" if label == "Malignant" else "#006600"
@@ -141,7 +140,7 @@ else:
         try:
             data = pd.read_csv(uploaded_file)
 
-            # Check if all required features exist
+            # Check feature order
             if list(data.columns) != FEATURES:
                 st.error(f"⚠️ CSV must have columns in this exact order:\n{FEATURES}")
             else:
