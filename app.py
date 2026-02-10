@@ -77,7 +77,7 @@ st.write("---")
 # ==============================
 # Sidebar
 # ==============================
-st.sidebar.header("🔍 Choose Input Method")
+st.sidebar.header(" Choose Input Method")
 option = st.sidebar.radio(
     "How do you want to give data?",
     ("Manual Input", "Upload CSV File")
@@ -87,7 +87,7 @@ option = st.sidebar.radio(
 # Manual Input Section
 # ==============================
 if option == "Manual Input":
-    st.subheader("✍️ Enter Cell Features")
+    st.subheader(" Enter Cell Features")
 
     radius_mean = st.number_input("Radius Mean", min_value=0.0)
     texture_mean = st.number_input("Texture Mean", min_value=0.0)
@@ -103,7 +103,7 @@ if option == "Manual Input":
         smoothness_mean
     ]])
 
-    if st.button("🔬 Predict"):
+    if st.button(" Predict"):
         prediction = model.predict(input_data)[0]
         probability = model.predict_proba(input_data)[0]
 
@@ -124,7 +124,7 @@ if option == "Manual Input":
 # CSV Upload Section
 # ==============================
 else:
-    st.subheader("📂 Upload CSV File")
+    st.subheader(" Upload CSV File")
 
     uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
 
@@ -132,7 +132,7 @@ else:
         try:
             data = pd.read_csv(uploaded_file)
 
-            st.write("📊 Uploaded Data Preview")
+            st.write(" Uploaded Data Preview")
             st.dataframe(data.head())
 
             predictions = model.predict(data)
@@ -142,7 +142,7 @@ else:
             results["Prediction"] = ["Malignant" if p == 1 else "Benign" for p in predictions]
             results["Confidence (%)"] = [round(max(prob)*100, 2) for prob in probabilities]
 
-            st.write("🧾 Prediction Results")
+            st.write(" Prediction Results")
             st.dataframe(results)
 
         except Exception as e:
@@ -157,3 +157,4 @@ st.markdown("""
 This application is for educational purposes only.  
 It should **NOT** be used as a replacement for professional medical diagnosis.
 """)
+
