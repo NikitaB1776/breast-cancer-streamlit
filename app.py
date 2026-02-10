@@ -53,15 +53,32 @@ body {
 """, unsafe_allow_html=True)
 
 # ==============================
-# Load Model (ONLY MODEL)
+# Load Model (AUTO-DETECT FORMAT)
 # ==============================
 @st.cache_resource
 def load_model():
     with open("breast_cancer_model.pkl", "rb") as file:
-        model = pickle.load(file)
-    return model
+        obj = pickle.load(file)
 
-model = load_model()
+    # Case 1: Saved as dict
+    if isinstance(obj, dict):
+        model = obj.get("model")
+        scaler = obj.get("scaler", None)
+
+    # Case 2: Saved as tuple (model, scaler)
+    elif isinstance(obj, tuple):
+        model = obj[0]
+        scaler = obj[1] if len(obj) > 1 else None
+
+    # Case 3: Saved directly as model
+    else:
+        model = obj
+        scaler = None
+
+    return model, scaler
+
+
+model, scaler = load_model()
 
 # ==============================
 # Title
@@ -104,27 +121,34 @@ if option == "Manual Input":
     ]])
 
     if st.button(" Predict"):
-        prediction = model.predict(input_data)[0]
-        probability = model.predict_proba(input_data)[0]
+        try:
+            if scaler is not None:
+                input_data = scaler.transform(input_data)
 
-        if prediction == 1:
-            st.markdown(
-                '<div class="result-box" style="background-color:#ffe6e6;color:#cc0000;">⚠️ Malignant Tumor Detected</div>',
-                unsafe_allow_html=True
-            )
-        else:
-            st.markdown(
-                '<div class="result-box" style="background-color:#e6ffe6;color:#006600;">✅ Benign Tumor Detected</div>',
-                unsafe_allow_html=True
-            )
+            prediction = model.predict(input_data)[0]
+            probability = model.predict_proba(input_data)[0]
 
-        st.write(f"### Prediction Confidence: **{max(probability)*100:.2f}%**")
+            if prediction == 1:
+                st.markdown(
+                    '<div class="result-box" style="background-color:#ffe6e6;color:#cc0000;">⚠️ Malignant Tumor Detected</div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    '<div class="result-box" style="background-color:#e6ffe6;color:#006600;">✅ Benign Tumor Detected</div>',
+                    unsafe_allow_html=True
+                )
+
+            st.write(f"### Prediction Confidence: **{max(probability)*100:.2f}%**")
+
+        except Exception as e:
+            st.error("⚠️ Prediction failed. Please check feature values.")
 
 # ==============================
 # CSV Upload Section
 # ==============================
 else:
-    st.subheader(" Upload CSV File")
+    st.subheader("📂 Upload CSV File")
 
     uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
 
@@ -135,18 +159,23 @@ else:
             st.write(" Uploaded Data Preview")
             st.dataframe(data.head())
 
-            predictions = model.predict(data)
-            probabilities = model.predict_proba(data)
+            if scaler is not None:
+                data_scaled = scaler.transform(data)
+            else:
+                data_scaled = data
+
+            predictions = model.predict(data_scaled)
+            probabilities = model.predict_proba(data_scaled)
 
             results = data.copy()
             results["Prediction"] = ["Malignant" if p == 1 else "Benign" for p in predictions]
             results["Confidence (%)"] = [round(max(prob)*100, 2) for prob in probabilities]
 
-            st.write(" Prediction Results")
+            st.write("🧾 Prediction Results")
             st.dataframe(results)
 
         except Exception as e:
-            st.error("⚠️ Error processing file. Please check CSV format and feature order.")
+            st.error("⚠️ Error processing file. Ensure CSV matches training features.")
 
 # ==============================
 # Disclaimer
@@ -157,4 +186,3 @@ st.markdown("""
 This application is for educational purposes only.  
 It should **NOT** be used as a replacement for professional medical diagnosis.
 """)
-
