@@ -16,40 +16,52 @@ st.set_page_config(
 # Custom CSS (White Background)
 # ==============================
 st.markdown("""
-    <style>
-    body {
-        background-color: white;
-    }
-    .main {
-        background-color: white;
-    }
-    .title {
-        text-align: center;
-        font-size: 40px;
-        font-weight: bold;
-        color: #333333;
-    }
-    .subtitle {
-        text-align: center;
-        font-size: 18px;
-        color: #666666;
-        margin-bottom: 30px;
-    }
-    .result-box {
-        padding: 20px;
-        border-radius: 10px;
-        font-size: 20px;
-        text-align: center;
-        font-weight: bold;
-    }
-    </style>
+<style>
+body {
+    background-color: white;
+}
+.main {
+    background-color: white;
+}
+.title {
+    text-align: center;
+    font-size: 40px;
+    font-weight: bold;
+    color: #333333;
+}
+.subtitle {
+    text-align: center;
+    font-size: 18px;
+    color: #666666;
+    margin-bottom: 30px;
+}
+.result-box {
+    padding: 20px;
+    border-radius: 10px;
+    font-size: 20px;
+    text-align: center;
+    font-weight: bold;
+}
+.stButton>button {
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 8px;
+    height: 3em;
+    width: 100%;
+}
+</style>
 """, unsafe_allow_html=True)
 
 # ==============================
-# Load Model
+# Load Model (ONLY MODEL)
 # ==============================
-with open("breast_cancer_model.pkl", "rb") as file:
-    model, scaler = pickle.load(file)
+@st.cache_resource
+def load_model():
+    with open("breast_cancer_model.pkl", "rb") as file:
+        model = pickle.load(file)
+    return model
+
+model = load_model()
 
 # ==============================
 # Title
@@ -72,29 +84,28 @@ option = st.sidebar.radio(
 )
 
 # ==============================
-# Manual Input
+# Manual Input Section
 # ==============================
 if option == "Manual Input":
     st.subheader("✍️ Enter Cell Features")
 
-    radius_mean = st.number_input("Radius Mean", 0.0)
-    texture_mean = st.number_input("Texture Mean", 0.0)
-    perimeter_mean = st.number_input("Perimeter Mean", 0.0)
-    area_mean = st.number_input("Area Mean", 0.0)
-    smoothness_mean = st.number_input("Smoothness Mean", 0.0)
+    radius_mean = st.number_input("Radius Mean", min_value=0.0)
+    texture_mean = st.number_input("Texture Mean", min_value=0.0)
+    perimeter_mean = st.number_input("Perimeter Mean", min_value=0.0)
+    area_mean = st.number_input("Area Mean", min_value=0.0)
+    smoothness_mean = st.number_input("Smoothness Mean", min_value=0.0)
 
-    input_data = np.array([
+    input_data = np.array([[
         radius_mean,
         texture_mean,
         perimeter_mean,
         area_mean,
         smoothness_mean
-    ]).reshape(1, -1)
+    ]])
 
     if st.button("🔬 Predict"):
-        scaled_data = scaler.transform(input_data)
-        prediction = model.predict(scaled_data)[0]
-        probability = model.predict_proba(scaled_data)[0]
+        prediction = model.predict(input_data)[0]
+        probability = model.predict_proba(input_data)[0]
 
         if prediction == 1:
             st.markdown(
@@ -110,7 +121,7 @@ if option == "Manual Input":
         st.write(f"### Prediction Confidence: **{max(probability)*100:.2f}%**")
 
 # ==============================
-# File Upload
+# CSV Upload Section
 # ==============================
 else:
     st.subheader("📂 Upload CSV File")
@@ -120,22 +131,22 @@ else:
     if uploaded_file is not None:
         try:
             data = pd.read_csv(uploaded_file)
-            st.write("📊 Uploaded Data Preview:")
+
+            st.write("📊 Uploaded Data Preview")
             st.dataframe(data.head())
 
-            scaled_data = scaler.transform(data)
-            predictions = model.predict(scaled_data)
-            probabilities = model.predict_proba(scaled_data)
+            predictions = model.predict(data)
+            probabilities = model.predict_proba(data)
 
             results = data.copy()
             results["Prediction"] = ["Malignant" if p == 1 else "Benign" for p in predictions]
             results["Confidence (%)"] = [round(max(prob)*100, 2) for prob in probabilities]
 
-            st.write("🧾 Prediction Results:")
+            st.write("🧾 Prediction Results")
             st.dataframe(results)
 
         except Exception as e:
-            st.error("⚠️ Error processing file. Please check CSV format.")
+            st.error("⚠️ Error processing file. Please check CSV format and feature order.")
 
 # ==============================
 # Disclaimer
