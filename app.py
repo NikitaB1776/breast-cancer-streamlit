@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # ==============================
-# Custom CSS (White Background)
+# Custom CSS
 # ==============================
 st.markdown("""
 <style>
@@ -53,32 +53,30 @@ body {
 """, unsafe_allow_html=True)
 
 # ==============================
-# Load Model (AUTO-DETECT FORMAT)
+# Load Model
 # ==============================
 @st.cache_resource
 def load_model():
     with open("breast_cancer_model.pkl", "rb") as file:
-        obj = pickle.load(file)
+        model = pickle.load(file)
+    return model
 
-    # Case 1: Saved as dict
-    if isinstance(obj, dict):
-        model = obj.get("model")
-        scaler = obj.get("scaler", None)
+model = load_model()
 
-    # Case 2: Saved as tuple (model, scaler)
-    elif isinstance(obj, tuple):
-        model = obj[0]
-        scaler = obj[1] if len(obj) > 1 else None
-
-    # Case 3: Saved directly as model
-    else:
-        model = obj
-        scaler = None
-
-    return model, scaler
-
-
-model, scaler = load_model()
+# ==============================
+# Feature Names (FROM TRAINING)
+# ==============================
+FEATURES = [
+    "ClumpThickness",
+    "UniformityCellSize",
+    "UniformityCellShape",
+    "MarginalAdhesion",
+    "SingleEpithelialCellSize",
+    "BareNuclei",
+    "BlandChromatin",
+    "NormalNucleoli",
+    "Mitoses"
+]
 
 # ==============================
 # Title
@@ -94,88 +92,69 @@ st.write("---")
 # ==============================
 # Sidebar
 # ==============================
-st.sidebar.header(" Choose Input Method")
+st.sidebar.header("🔍 Choose Input Method")
 option = st.sidebar.radio(
     "How do you want to give data?",
     ("Manual Input", "Upload CSV File")
 )
 
 # ==============================
-# Manual Input Section
+# Manual Input
 # ==============================
 if option == "Manual Input":
-    st.subheader(" Enter Cell Features")
+    st.subheader("✍️ Enter Cell Features (1–10)")
 
-    radius_mean = st.number_input("Radius Mean", min_value=0.0)
-    texture_mean = st.number_input("Texture Mean", min_value=0.0)
-    perimeter_mean = st.number_input("Perimeter Mean", min_value=0.0)
-    area_mean = st.number_input("Area Mean", min_value=0.0)
-    smoothness_mean = st.number_input("Smoothness Mean", min_value=0.0)
+    user_input = []
+    for feature in FEATURES:
+        value = st.number_input(feature, min_value=1, max_value=10, value=1)
+        user_input.append(value)
 
-    input_data = np.array([[
-        radius_mean,
-        texture_mean,
-        perimeter_mean,
-        area_mean,
-        smoothness_mean
-    ]])
+    input_data = np.array(user_input).reshape(1, -1)
 
-    if st.button(" Predict"):
-        try:
-            if scaler is not None:
-                input_data = scaler.transform(input_data)
+    if st.button("🔬 Predict"):
+        prediction = model.predict(input_data)[0]
+        probability = model.predict_proba(input_data)[0]
 
-            prediction = model.predict(input_data)[0]
-            probability = model.predict_proba(input_data)[0]
+        if prediction == 4:
+            st.markdown(
+                '<div class="result-box" style="background-color:#ffe6e6;color:#cc0000;">⚠️ Malignant Tumor Detected</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                '<div class="result-box" style="background-color:#e6ffe6;color:#006600;">✅ Benign Tumor Detected</div>',
+                unsafe_allow_html=True
+            )
 
-            if prediction == 1:
-                st.markdown(
-                    '<div class="result-box" style="background-color:#ffe6e6;color:#cc0000;">⚠️ Malignant Tumor Detected</div>',
-                    unsafe_allow_html=True
-                )
-            else:
-                st.markdown(
-                    '<div class="result-box" style="background-color:#e6ffe6;color:#006600;">✅ Benign Tumor Detected</div>',
-                    unsafe_allow_html=True
-                )
-
-            st.write(f"### Prediction Confidence: **{max(probability)*100:.2f}%**")
-
-        except Exception as e:
-            st.error("⚠️ Prediction failed. Please check feature values.")
+        st.write(f"### Prediction Confidence: **{max(probability)*100:.2f}%**")
 
 # ==============================
-# CSV Upload Section
+# CSV Upload
 # ==============================
 else:
     st.subheader("📂 Upload CSV File")
 
-    uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
+    uploaded_file = st.file_uploader("Upload CSV with 9 feature columns", type=["csv"])
 
-    if uploaded_file is not None:
+    if uploaded_file:
         try:
             data = pd.read_csv(uploaded_file)
 
-            st.write(" Uploaded Data Preview")
+            st.write("📊 Uploaded Data Preview")
             st.dataframe(data.head())
 
-            if scaler is not None:
-                data_scaled = scaler.transform(data)
-            else:
-                data_scaled = data
-
-            predictions = model.predict(data_scaled)
-            probabilities = model.predict_proba(data_scaled)
+            predictions = model.predict(data)
+            probabilities = model.predict_proba(data)
 
             results = data.copy()
-            results["Prediction"] = ["Malignant" if p == 1 else "Benign" for p in predictions]
+            results["Prediction"] = ["Malignant" if p == 4 else "Benign" for p in predictions]
             results["Confidence (%)"] = [round(max(prob)*100, 2) for prob in probabilities]
 
             st.write("🧾 Prediction Results")
             st.dataframe(results)
 
-        except Exception as e:
-            st.error("⚠️ Error processing file. Ensure CSV matches training features.")
+        except Exception:
+            st.error("⚠️ CSV must contain the 9 training features in correct order.")
 
 # ==============================
 # Disclaimer
@@ -184,5 +163,5 @@ st.write("---")
 st.markdown("""
 ⚠️ **Medical Disclaimer**  
 This application is for educational purposes only.  
-It should **NOT** be used as a replacement for professional medical diagnosis.
+Not a substitute for professional medical advice.
 """)
